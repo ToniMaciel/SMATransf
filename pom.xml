@@ -28,7 +28,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>Transformations</mainClass>
+                            <mainClass>org.Transformations</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>

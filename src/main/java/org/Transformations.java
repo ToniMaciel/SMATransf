@@ -1,16 +1,32 @@
-import java.io.*;
-import java.util.*;
+package org;
 
+import static org.eclipse.jdt.core.dom.Modifier.ModifierKeyword;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import org.apache.commons.io.FileUtils;
-import org.eclipse.core.runtime.CoreException;
-import org.eclipse.jdt.core.IField;
-import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.JavaModelException;
-import org.eclipse.jdt.core.dom.*;
-
-
-import static org.eclipse.jdt.core.dom.Modifier.*;
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTNode;
+import org.eclipse.jdt.core.dom.ASTParser;
+import org.eclipse.jdt.core.dom.ASTVisitor;
+import org.eclipse.jdt.core.dom.Annotation;
+import org.eclipse.jdt.core.dom.Block;
+import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.FieldDeclaration;
+import org.eclipse.jdt.core.dom.MethodDeclaration;
+import org.eclipse.jdt.core.dom.Modifier;
+import org.eclipse.jdt.core.dom.PrimitiveType;
+import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
+import org.eclipse.jdt.core.dom.Type;
+import org.eclipse.jdt.core.dom.TypeDeclaration;
+import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 
 
 public class Transformations {
@@ -229,13 +245,6 @@ public class Transformations {
                     }
 
                 }
-                /*
-                if(field.fragments().size()== 1){
-                    System.out.println(field.fragments().toString());
-
-                    return true;
-                }
-                */
             }
         }
         return false;
@@ -293,37 +302,45 @@ public class Transformations {
 
     //Remove remove Final modifiers and set private and protected modifiers
     private static void RemoveFinalModifierAndMakeFieldPublic(FieldDeclaration node) {
-        List<Modifier> modifiersToRemove = new ArrayList<Modifier>();
-        int i = 0;
+        if (node.modifiers().size() > 0) {
+            List<Modifier> modifiersToRemove = new ArrayList<Modifier>();
+            int i = 0;
 
-        while (i < node.modifiers().size()) {
-            if (node.modifiers().get(i) instanceof Modifier) {
-                Modifier mod = (Modifier) node.modifiers().get(i);
-                /*if (mod.isFinal()) {
-                    modifiersToRemove.add(mod);
-                } else */if (mod.isPrivate() || mod.isProtected()) {
-                    mod.setKeyword(ModifierKeyword.PUBLIC_KEYWORD);
+            while (i < node.modifiers().size()) {
+                if (node.modifiers().get(i) instanceof Modifier) {
+                    Modifier mod = (Modifier) node.modifiers().get(i);
+                    /*if (mod.isFinal()) {
+                        modifiersToRemove.add(mod);
+                    } else */
+                    if (mod.isPrivate() || mod.isProtected()) {
+                        mod.setKeyword(ModifierKeyword.PUBLIC_KEYWORD);
+                    }
+                }
+                i++;
+            }
+            for (Modifier mod : modifiersToRemove) {
+                node.modifiers().remove(mod);
+            }
+
+            if (node.modifiers().size() > 0 && !node.toString().contains("public ")) {
+
+                Object firstMod = node.modifiers().get(0);
+                if (firstMod instanceof Annotation) {
+                    if (!((Modifier) node.modifiers().get(1)).isPublic()) {
+                        node.modifiers()
+                            .add(1, node.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
+                    }
+
+                } else if (firstMod instanceof Modifier) {
+                    if (!((Modifier) firstMod).isPublic()) {
+                        node.modifiers()
+                            .add(0, node.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
+                    }
                 }
             }
-            i++;
-        }
-        for (Modifier mod : modifiersToRemove) {
-            node.modifiers().remove(mod);
-        }
-
-        if (node.modifiers().size() > 0 && !node.toString().contains("public ")) {
-
-            Object firstMod = node.modifiers().get(0);
-            if (firstMod instanceof Annotation) {
-                if(!((Modifier) node.modifiers().get(1)).isPublic()){
-                    node.modifiers().add(1, node.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
-                }
-
-            } else if (firstMod instanceof Modifier) {
-                if(!((Modifier) firstMod).isPublic()){
-                    node.modifiers().add(0, node.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
-                }
-            }
+        }else{
+            node.modifiers()
+                .add(0, node.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
         }
 
 
@@ -384,7 +401,6 @@ public class Transformations {
         parser.setSource(document.get().toCharArray());
         parser.setKind(ASTParser.K_COMPILATION_UNIT);
 
-        //String str = readFileToString(file);
 
         final CompilationUnit cu = (CompilationUnit) parser.createAST(null);
 
@@ -398,26 +414,8 @@ public class Transformations {
 
     public static void main(String[] args) throws IOException {
         String path = args[0];
-        //System.out.println(path);
-        //File file = new File("/home/jprm/Documents/test/src/main/ExplodedArchive.java");
-        //File file = new File("E:\\git\\nimrod-transformations\\Ball.java");
         File file = new File(path);
         Transformations.runTransformation(file);
     }
-/*
-    public static void main(String[] args) throws IOException {
-        //String path = args[0];
-        //System.out.println(path);
-        //File file = new File("/home/jprm/Documents/test/src/main/ExplodedArchive.java");
-        File file = new File("E:\\git\\nimrod-transformations\\Ball.java");
-        //File file = new File(path);
-        Transformations.runTransformation(file);
-    }*/
-
 
 }
-//mvn clean compile assembly:single
-//mvn exec:java -Dexec.mainClass="com.vineetmanohar.module.Main"
-//mvn exec:java -Dexec.mainClass="com.vineetmanohar.module.Main" -Dexec.args="arg0 arg1 arg2"
-//mvn exec:java -Dexec.mainClass="com.vineetmanohar.module.Main" -Dexec.classpathScope=runtime
-
