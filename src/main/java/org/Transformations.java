@@ -76,6 +76,7 @@ public class Transformations {
             public boolean visit(TypeDeclaration node){
                 addEmptyConstructorAndMakeClassPublic(node);
                 addgettersAndSetters(node);
+                changeClassAccessModifier(node);
                 return true;
             }
 
@@ -85,28 +86,26 @@ public class Transformations {
     private static Block createGetterMethodBody(AST ast, String variableName)
     {
         String body = "return this."+ variableName+";";
-        ASTParser parser = ASTParser.newParser(AST.JLS8);
-        parser.setKind(ASTParser.K_STATEMENTS);
-        parser.setSource(body.toCharArray());
-        ASTNode astNodeWithMethodBody = parser.createAST(null);
-        ASTNode convertedAstNodeWithMethodBody =
-                ASTNode.copySubtree(ast, astNodeWithMethodBody);
-        Block block = (Block)convertedAstNodeWithMethodBody;
+        Block block = getBlockForSetterAndGetter(ast, body);
 
         return block;
     }
     private static Block createSetterMethodBody(AST ast, String variableName)
     {
         String body = "this."+ variableName+" = " + variableName + ";";
+        Block block = getBlockForSetterAndGetter(ast, body);
+
+        return block;
+    }
+
+    private static Block getBlockForSetterAndGetter(AST ast, String body) {
         ASTParser parser = ASTParser.newParser(AST.JLS8);
         parser.setKind(ASTParser.K_STATEMENTS);
         parser.setSource(body.toCharArray());
         ASTNode astNodeWithMethodBody = parser.createAST(null);
         ASTNode convertedAstNodeWithMethodBody =
-                ASTNode.copySubtree(ast, astNodeWithMethodBody);
-        Block block = (Block)convertedAstNodeWithMethodBody;
-
-        return block;
+            ASTNode.copySubtree(ast, astNodeWithMethodBody);
+        return (Block) convertedAstNodeWithMethodBody;
     }
 
     private static boolean hasFinalModifier(FieldDeclaration fieldNode){
@@ -300,15 +299,23 @@ public class Transformations {
 
     }
 
+    private static void changeClassAccessModifier(TypeDeclaration node){
+        updatingAccessModifierForPublic(node.modifiers(), node.toString(), node.getAST());
+    }
+
     //Remove remove Final modifiers and set private and protected modifiers
     private static void RemoveFinalModifierAndMakeFieldPublic(FieldDeclaration node) {
-        if (node.modifiers().size() > 0) {
+        updatingAccessModifierForPublic(node.modifiers(), node.toString(), node.getAST());
+    }
+
+    private static void updatingAccessModifierForPublic(List modifiers, String s, AST ast) {
+        if (modifiers.size() > 0) {
             List<Modifier> modifiersToRemove = new ArrayList<Modifier>();
             int i = 0;
 
-            while (i < node.modifiers().size()) {
-                if (node.modifiers().get(i) instanceof Modifier) {
-                    Modifier mod = (Modifier) node.modifiers().get(i);
+            while (i < modifiers.size()) {
+                if (modifiers.get(i) instanceof Modifier) {
+                    Modifier mod = (Modifier) modifiers.get(i);
                     /*if (mod.isFinal()) {
                         modifiersToRemove.add(mod);
                     } else */
@@ -319,77 +326,36 @@ public class Transformations {
                 i++;
             }
             for (Modifier mod : modifiersToRemove) {
-                node.modifiers().remove(mod);
+                modifiers.remove(mod);
             }
 
-            if (node.modifiers().size() > 0 && !node.toString().contains("public ")) {
+            if (modifiers.size() > 0 && !s.contains("public ")) {
 
-                Object firstMod = node.modifiers().get(0);
+                Object firstMod = modifiers.get(0);
                 if (firstMod instanceof Annotation) {
-                    if (!((Modifier) node.modifiers().get(1)).isPublic()) {
-                        node.modifiers()
-                            .add(1, node.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
+                    if (!((Modifier) modifiers.get(1)).isPublic()) {
+                        modifiers
+                            .add(1, ast.newModifier(ModifierKeyword.PUBLIC_KEYWORD));
                     }
 
                 } else if (firstMod instanceof Modifier) {
                     if (!((Modifier) firstMod).isPublic()) {
-                        node.modifiers()
-                            .add(0, node.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
+                        modifiers
+                            .add(0, ast.newModifier(ModifierKeyword.PUBLIC_KEYWORD));
                     }
                 }
             }
-        }else{
-            node.modifiers()
-                .add(0, node.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
+        } else {
+            modifiers
+                .add(0, ast.newModifier(ModifierKeyword.PUBLIC_KEYWORD));
         }
-
-
     }
 
     private static void RemoveFinalModifierAndMakeMethodPublic(MethodDeclaration node){
-
-        List<Modifier> modifiersToRemove = new ArrayList<Modifier>();
-        int i = 0;
-
-        while (i < node.modifiers().size()) {
-            if (node.modifiers().get(i) instanceof Modifier) {
-                Modifier mod = (Modifier) node.modifiers().get(i);
-                /*if (mod.isFinal()) {
-                    modifiersToRemove.add(mod);
-                } else*/ if (mod.isPrivate() || mod.isProtected()) {
-                    mod.setKeyword(ModifierKeyword.PUBLIC_KEYWORD);
-                }
-            }
-            i++;
-        }
-        for (Modifier mod : modifiersToRemove) {
-            node.modifiers().remove(mod);
-        }
-        if(node.modifiers().size() > 0 ){
-            if (!node.toString().contains("public ")) {
-
-                Object firstMod = node.modifiers().get(0);
-                if (firstMod instanceof Annotation) {
-                    if(node.modifiers().size()>1) {
-                        if (!((Modifier) node.modifiers().get(1)).isPublic()) {
-                            node.modifiers().add(1, node.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
-                        }
-                    }else{
-                        node.modifiers().add(1, node.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
-                    }
-                } else if (firstMod instanceof Modifier) {
-                    if (!((Modifier) firstMod).isPublic()) {
-                        node.modifiers().add(0, node.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
-                    }
-                }
-            }
-        }else{
-            node.modifiers().add(0, node.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
-            System.out.println(" modifiers " +node.getName().toString() + " size:" +node.modifiers().size());
-        }
+        updatingAccessModifierForPublic(node.modifiers(), node.toString(), node.getAST());
     }
 
-    static final void runTransformation(File file) throws IOException {
+    public static final void runTransformation(File file) throws IOException {
         final String str = FileUtils.readFileToString(file);
         org.eclipse.jface.text.Document document = new org.eclipse.jface.text.Document(str);
 
@@ -413,7 +379,7 @@ public class Transformations {
     }
 
     public static void main(String[] args) throws IOException {
-        String path = args[0];
+        String path = "/home/leusonmario/Documentos/PHD/Research/projects/elasticsearch-river-mongodb/src/main/java/org/elasticsearch/river/mongodb/Slurper.java";
         File file = new File(path);
         Transformations.runTransformation(file);
     }
