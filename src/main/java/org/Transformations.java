@@ -379,7 +379,7 @@ public class Transformations {
     }
 
     public static void main(String[] args) throws IOException {
-        String path = "/home/leusonmario/Documentos/PHD/Research/projects/elasticsearch-river-mongodb/src/main/java/org/elasticsearch/river/mongodb/Slurper.java";
+        String path = args[0];
         File file = new File(path);
         Transformations.runTransformation(file);
     }
