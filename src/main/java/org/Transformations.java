@@ -58,7 +58,7 @@ public class Transformations {
         return false;
     }
 
-    public static void transform(final CompilationUnit cu) {
+    public static void transform(final CompilationUnit cu, final boolean fullTransformation) {
 
         cu.accept(new ASTVisitor() {
 
@@ -74,7 +74,8 @@ public class Transformations {
                 return true;
             }
             public boolean visit(TypeDeclaration node){
-                addEmptyConstructorAndMakeClassPublic(node);
+                if (fullTransformation)
+                    addEmptyConstructorAndMakeClassPublic(node, fullTransformation);
                 addgettersAndSetters(node);
                 changeClassAccessModifier(node);
                 return true;
@@ -251,8 +252,8 @@ public class Transformations {
 
 
 //add empty constructor
-    public static void addEmptyConstructorAndMakeClassPublic(TypeDeclaration node){
-        if(!node.isInterface()){
+    public static void addEmptyConstructorAndMakeClassPublic(TypeDeclaration node, boolean emptyConstructor) {
+        if (!node.isInterface()) {
 
             int i = 0;
             while (i < node.modifiers().size()) {
@@ -268,35 +269,35 @@ public class Transformations {
 
                 Object firstMod = node.modifiers().get(0);
                 if (firstMod instanceof Annotation) {
-                    if(!((Modifier) node.modifiers().get(1)).isPublic()){
-                        node.modifiers().add(1, node.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
+                    if (!((Modifier) node.modifiers().get(1)).isPublic()) {
+                        node.modifiers()
+                            .add(1, node.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
                     }
 
                 } else if (firstMod instanceof Modifier) {
-                    if(!((Modifier) firstMod).isPublic()){
-                        node.modifiers().add(0, node.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
+                    if (!((Modifier) firstMod).isPublic()) {
+                        node.modifiers()
+                            .add(0, node.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
                     }
                 }
             }
 
-            if(hasEmptyConstructor(node) || hasFinalVariablesNotInitialized(node)){
+            if (hasEmptyConstructor(node) || hasFinalVariablesNotInitialized(node)) {
                 return;
+            } else {
+                AST ast = node.getAST();
+                String className = node.getName().getFullyQualifiedName();
+                MethodDeclaration newConstructor = ast.newMethodDeclaration();
+
+                newConstructor.setName(ast.newSimpleName(className));
+                newConstructor.setConstructor(true);
+                newConstructor.setBody(ast.newBlock());
+                ModifierKeyword amp = ModifierKeyword.PUBLIC_KEYWORD;
+                newConstructor.modifiers().add(ast.newModifier(amp));
+
+                node.bodyDeclarations().add(newConstructor);
             }
-
-            AST ast = node.getAST();
-            String className = node.getName().getFullyQualifiedName();
-            MethodDeclaration newConstructor = ast.newMethodDeclaration();
-
-            newConstructor.setName(ast.newSimpleName(className));
-            newConstructor.setConstructor(true);
-            newConstructor.setBody(ast.newBlock());
-            ModifierKeyword amp = ModifierKeyword.PUBLIC_KEYWORD;
-            newConstructor.modifiers().add(ast.newModifier(amp));
-
-            node.bodyDeclarations().add(newConstructor);
         }
-
-
     }
 
     private static void changeClassAccessModifier(TypeDeclaration node){
@@ -355,33 +356,43 @@ public class Transformations {
         updatingAccessModifierForPublic(node.modifiers(), node.toString(), node.getAST());
     }
 
-    public static final void runTransformation(File file) throws IOException {
-        final String str = FileUtils.readFileToString(file);
-        org.eclipse.jface.text.Document document = new org.eclipse.jface.text.Document(str);
+    public static final void runTransformation(File file, boolean withTransformation, boolean fullTransformation) throws IOException {
+        if (withTransformation) {
+            final String str = FileUtils.readFileToString(file);
+            org.eclipse.jface.text.Document document = new org.eclipse.jface.text.Document(str);
 
-        ASTParser parser = ASTParser.newParser(AST.JLS8);
-        Map options = JavaCore.getOptions(); // New!
-        JavaCore.setComplianceOptions(JavaCore.VERSION_1_8, options); // New!
-        parser.setCompilerOptions(options);
+            ASTParser parser = ASTParser.newParser(AST.JLS8);
+            Map options = JavaCore.getOptions(); // New!
+            JavaCore.setComplianceOptions(JavaCore.VERSION_1_8, options); // New!
+            parser.setCompilerOptions(options);
 
-        parser.setSource(document.get().toCharArray());
-        parser.setKind(ASTParser.K_COMPILATION_UNIT);
+            parser.setSource(document.get().toCharArray());
+            parser.setKind(ASTParser.K_COMPILATION_UNIT);
 
+            final CompilationUnit cu = (CompilationUnit) parser.createAST(null);
 
-        final CompilationUnit cu = (CompilationUnit) parser.createAST(null);
+            transform(cu, fullTransformation);
 
-        transform(cu);
-
-        FileWriter fooWriter = new FileWriter(file, false); // true to append
-        fooWriter.write(cu.toString());
-        fooWriter.close();
-
+            FileWriter fooWriter = new FileWriter(file, false); // true to append
+            fooWriter.write(cu.toString());
+            fooWriter.close();
+        }
     }
 
     public static void main(String[] args) throws IOException {
         String path = args[0];
         File file = new File(path);
-        Transformations.runTransformation(file);
+        Transformations.runTransformation(file, applyTransformations(args, 1), applyTransformations(args, 2));
+    }
+
+    private static boolean applyTransformations(String[] args, int index){
+        if (args.length == 1){
+            return true;
+        }else if(Boolean.valueOf(args[index])){
+            return true;
+        }else{
+            return false;
+        }
     }
 
 }
