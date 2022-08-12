@@ -282,7 +282,7 @@ public class Transformations {
                 }
             }
 
-            if (hasEmptyConstructor(node) || hasFinalVariablesNotInitialized(node) || superclassWithoutEmptyConstructor(node)) {
+            if (hasEmptyConstructor(node) || hasFinalVariablesNotInitialized(node) || superclassesWithoutEmptyConstructor(node)) {
                 System.out.println("It wasn't possible to add empty constructor!");
                 return;
             } else {
@@ -301,12 +301,12 @@ public class Transformations {
         }
     }
 
-    private static boolean superclassWithoutEmptyConstructor(TypeDeclaration node) {
+    private static boolean superclassesWithoutEmptyConstructor(TypeDeclaration node) {
         Type superClassType = node.getSuperclassType();
         if(superClassType == null)
             return true;
         TypeDeclaration superClassTypeDeclaration = superClassType.getAST().newTypeDeclaration();
-        return (!hasEmptyConstructor(superClassTypeDeclaration)) && superclassWithoutEmptyConstructor(superClassTypeDeclaration);
+        return (!hasEmptyConstructor(superClassTypeDeclaration)) && superclassesWithoutEmptyConstructor(superClassTypeDeclaration);
     }
 
     private static void changeClassAccessModifier(TypeDeclaration node){
