@@ -304,9 +304,9 @@ public class Transformations {
     private static boolean superclassesWithoutEmptyConstructor(TypeDeclaration node) {
         Type superClassType = node.getSuperclassType();
         if(superClassType == null)
-            return true;
+            return false;
         TypeDeclaration superClassTypeDeclaration = superClassType.getAST().newTypeDeclaration();
-        return (!hasEmptyConstructor(superClassTypeDeclaration)) && superclassesWithoutEmptyConstructor(superClassTypeDeclaration);
+        return !hasEmptyConstructor(superClassTypeDeclaration) || superclassesWithoutEmptyConstructor(superClassTypeDeclaration);
     }
 
     private static void changeClassAccessModifier(TypeDeclaration node){
