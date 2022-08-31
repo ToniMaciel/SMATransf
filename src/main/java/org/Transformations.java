@@ -283,7 +283,7 @@ public class Transformations {
             }
 
             if (hasEmptyConstructor(node) || hasFinalVariablesNotInitialized(node) || superclassesWithoutEmptyConstructor(node)) {
-                System.out.println("It wasn't possible to add empty constructor!");
+                System.out.println("It wasn't possible to add empty constructor to " + node.getName().getFullyQualifiedName());
                 return;
             } else {
                 AST ast = node.getAST();
